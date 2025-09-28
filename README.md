@@ -9,12 +9,12 @@ The repo contains source code for running and testing the app locally.
 At the end of this document are Assumptions, design decisions, enterprise-grade scale and future extensions.
 
 ## Features
-- POST /files -> Upload a file (max 20MB)
-- GET /files/{id} -> Download file by ID
-- GET /files -> List all uploaded files (metadata only)
+- `POST /files` -> Upload a file (max 20MB)
+- `GET /files/{id}` -> Download file by ID
+- `GET /files` -> List all uploaded files (metadata only)
 - File metadata includes: id, filename, size, contentType, uploadedAt, sha256
-- Runs locally with LocalStack (no AWS account needed)
-- Makefile for ease of testing and running locally
+- Runs locally with `LocalStack` (no AWS account needed)
+- `Makefile` for ease of testing and running locally
 
 ## High-level Design (Current, basic version)
 ![basic_design.png](docs/images/basic_design.png)
