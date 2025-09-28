@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  app:
+    build: .
+    container_name: file-share-service
+    ports:
+      - "8000:8000"
+    environment:
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_REGION: us-east-1
+      BUCKET_NAME: file-share-bucket
+      TABLE_NAME: FileMetadata
+      # Point boto3 to LocalStack
+      AWS_ENDPOINT_URL: http://localstack:4566
+    depends_on:
+      - localstack
+
+  localstack:
+    image: localstack/localstack:latest
+    container_name: localstack
+    ports:
+      - "4566:4566"   # LocalStack gateway
+      - "4571:4571"
+    environment:
+      SERVICES: s3,dynamodb
+      DEBUG: 1
+      DATA_DIR: /tmp/localstack/data
+      AWS_DEFAULT_REGION: us-east-1
+#    volumes:
+#      - "./.localstack:/tmp/localstack"
