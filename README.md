@@ -149,11 +149,9 @@ make down   # stop everything
   - `413 Payload Too Large` → File exceeds 20MB
   - `404 Not Found` → File ID does not exist
   - `500 Internal Server Error` → Unexpected server error
-
-# Design Decisions
 - LocalStack usage for rapid local testing without AWS dependency.
 
-# Scaling to Production/Future Extensions
+# Scaling to Production and Future Extensions
 Design evolves for enterprise-grade scale (e.g., millions of files, compliance):
 ## Upload Flow
 - Replace API proxy upload with S3 pre-signed URLs -> clients upload directly to S3, avoiding app bottlenecks.
