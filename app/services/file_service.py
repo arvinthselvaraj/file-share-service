@@ -1,5 +1,6 @@
+import re
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import UploadFile, HTTPException
 from fastapi.responses import StreamingResponse
 from botocore.exceptions import ClientError
@@ -25,19 +26,19 @@ def upload_file(file: UploadFile):
         table.put_item(
             Item={
                 "fileId": file_id,
-                "filename": file.filename,
+                "filename": sanitize_filename(file.filename),
                 "sizeBytes": size,
                 "contentType": file.content_type,
                 "sha256": sha256,
                 "s3Key": s3_key,
-                "uploadedAt": datetime.utcnow().isoformat()+"Z",
+                "uploadedAt": datetime.now(timezone.utc).isoformat()
             }
         )
 
         return {"id": file_id, "filename": file.filename, "size": size}
 
     except ValueError:
-        raise HTTPException(status_code=413, detail="File exceeds 20MB limit")
+        raise HTTPException(status_code=413, detail="File size exceeds maximum limit of 20MB.")
     except ClientError as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -49,6 +50,7 @@ def list_files():
     :return: Files metadata
     """
     try:
+        # Scan is expensive and response pagination required
         resp = table.scan(
             ProjectionExpression="fileId, filename, sizeBytes, uploadedAt"
         )
@@ -80,3 +82,22 @@ def download_file(file_id: str):
         )
     except ClientError as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+def sanitize_filename(filename: str) -> str:
+    """
+    Function to remove unsafe characters, allow alphanumeric, underscore, dash, dot
+    :param filename: un-sanitized filename
+    :return: sanitized filename
+    """
+    sanitized = re.sub(r'[^a-zA-Z0-9_\-\.]', '_', filename)
+    return sanitized
+
+
+def check_file_extension(filename: str) -> str:
+    """
+
+    :param filename:
+    :return:
+    """
+    file_extension = filename[1].lower()

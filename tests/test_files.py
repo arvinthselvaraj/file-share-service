@@ -1,9 +1,13 @@
 import io
+from app.services.file_service import sanitize_filename
 
 
+# -----------------------
+# Upload file tests
+# -----------------------
 def test_upload_and_list_file(client):
     # Upload a file
-    file_content = b"hello resmed!"
+    file_content = b"hello world!"
     response = client.post(
         "/files/", files={"file": ("test.txt", io.BytesIO(file_content), "text/plain")}
     )
@@ -25,15 +29,42 @@ def test_upload_and_list_file(client):
     assert 'attachment; filename="test.txt"' in resp.headers["content-disposition"]
 
 
-def test_reject_large_file(client):
+def test_upload_file_allowed_max_size(client):
+    max_content = b"x" * (20 * 1024 * 1024)  # 20 MB
+    resp = client.post(
+        "/files/", files={"file": ("big.txt", io.BytesIO(max_content), "text/plain")}
+    )
+    assert resp.status_code == 201
+
+
+def test_upload_file_zero_size(client):
+    zero_content = b"x" * 0  # 0 MB
+    resp = client.post(
+        "/files/", files={"file": ("big.txt", io.BytesIO(zero_content), "text/plain")}
+    )
+    assert resp.status_code == 201
+
+
+def test_upload_file_reject_large_file(client):
     big_content = b"x" * (25 * 1024 * 1024)  # 25 MB
     resp = client.post(
         "/files/", files={"file": ("big.txt", io.BytesIO(big_content), "text/plain")}
     )
     assert resp.status_code == 413
-    assert "File exceeds 20MB" in resp.json()["detail"]
+    assert "File size exceeds maximum limit of 20MB." in resp.json()["detail"]
 
 
+def test_upload_file_sanitize_invalid_name(client):
+    file_content = b"test content"
+    resp = client.post(
+        "/files/", files={"file": ("bad/name?.txt", io.BytesIO(file_content), "text/plain")}
+    )
+    assert resp.status_code == 201
+
+
+# -----------------------
+# Download file tests
+# -----------------------
 def test_download_nonexistent_file(client):
     resp = client.get("/files/does-not-exist")
     assert resp.status_code == 404
@@ -63,3 +94,24 @@ def test_upload_multiple_files(client):
     filenames = [item["filename"] for item in items]
     assert len(items) == 3
     assert set(filenames) == {"file1.txt", "file2.txt", "file3.txt"}
+
+
+# -----------------------
+# sanitize_filename tests
+# -----------------------
+def test_sanitize_filename_basic():
+    assert sanitize_filename("file.txt") == "file.txt"
+    assert sanitize_filename("file-01.doc") == "file-01.doc"
+
+
+def test_sanitize_filename_special_chars():
+    assert sanitize_filename("file@#$%.txt") == "file____.txt"
+    assert sanitize_filename("file\\name.doc") == "file_name.doc"
+
+
+def test_sanitize_filename_spaces():
+    assert sanitize_filename("file name.txt") == "file_name.txt"
+
+
+def test_sanitize_filename_empty():
+    assert sanitize_filename("") == ""

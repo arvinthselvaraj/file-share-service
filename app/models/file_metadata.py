@@ -3,6 +3,9 @@ from typing import Optional
 
 
 class FileMetadata(BaseModel):
+    """
+    Pydantic gives basic input validation for request bodies and parameters.
+    """
     fileId: str
     filename: str
     sizeBytes: int

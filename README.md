@@ -5,8 +5,8 @@ S3 (LocalStack) -> stores files
 DynamoDB (LocalStack) -> stores metadata
 FastAPI -> provides REST endpoints for upload, download, and listing
 
-All source code for running and testing the app locally.
-Assumptions, design decisions, enterprise-scale readiness and future extensions at the end of this document.
+The repo contains source code for running and testing the app locally.
+At the end of this document are Assumptions, design decisions, enterprise-grade scale and future extensions.
 
 ## Features
 - POST /files -> Upload a file (max 20MB)
@@ -16,6 +16,8 @@ Assumptions, design decisions, enterprise-scale readiness and future extensions 
 - Runs locally with LocalStack (no AWS account needed)
 - Makefile for ease of testing and running locally
 
+## High-level Design (Current, basic version)
+![basic_design.png](docs/images/basic_design.png)
 
 ## Run locally quickly
 1. Pre-requisite
@@ -66,11 +68,23 @@ NOTE: Use aws credentials while connecting to real AWS account.
 Interactive API Docs (default FastAPI swagger UI params):
 - Swagger UI is available at: http://localhost:8000/docs
 
+Screenshots of Swagger UI with all endpoints:
+- [All endpoints](docs/images/swagger_ui_all_endpoints.png)
+- [Upload file](docs/images/swagger_ui_upload_file_success.png)
+- [Upload file too large](docs/images/swagger_ui_upload_file_too_large.png)
+- [List all files](docs/images/swagger_ui_list_all_files.png)
+- [Download file](docs/images/swagger_ui_download_file_by_id.png)
+
 6. Running Tests
 ```bash
 make test
 ```
 
+View test coverage:
+
+```bash
+pytest --cov=app --cov-report=term-missing tests/
+```
 
 ## Project Structure
 ```bash
@@ -124,10 +138,20 @@ make down   # stop everything
   - 500 Internal Server Error -> unexpected.
 
 
-# Assumptions
-
+# Assumptions & Design Decisions
+- No authentication required (per exercise requirements).
+- Max file size: 20MB (per exercise requirements).
+  - zero size file allowed.
+- File names sanitized to prevent unsafe characters.
+- Metadata stored in DynamoDB (or local JSON).
+- Storage in S3 or local disk depending on environment.
+- API errors:
+  - `413 Payload Too Large` → File exceeds 20MB
+  - `404 Not Found` → File ID does not exist
+  - `500 Internal Server Error` → Unexpected server error
 
 # Design Decisions
+- LocalStack usage for rapid local testing without AWS dependency.
 
 # Scaling to Production/Future Extensions
 Design evolves for enterprise-grade scale (e.g., millions of files, compliance):
@@ -156,10 +180,15 @@ Design evolves for enterprise-grade scale (e.g., millions of files, compliance):
 - S3 lifecycle -> move stale files to S3 Glacier Deep Archive.
 - DynamoDB TTL -> automatically expire old metadata.
 - Minimize egress with signed URLs and CloudFront caching.
-## API versioning
+## API enhancements
 - Version API path with v1, v2 ... for ease of API evolution with low customer impact.
+- Response pagination for list files endpoint.
+- Validate for safe file types (Currently, any file type is allowed e.g., .exe, .sh)
 ## CI/CD
 - Pipeline for app build and deployment
 - Gated deployment: Automated tests (unit, integration, perf etc.), static code analysis & test coverage (sonar), governance checks etc.
 - Tagged releases (in case of app rollback)
 - Change management process
+
+## Alternate Design
+![alt_design.png](docs/images/alt_design.png)

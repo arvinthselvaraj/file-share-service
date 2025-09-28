@@ -18,6 +18,6 @@ def compute_sha256_and_size(file_obj, max_bytes: int):
         h.update(chunk)
         size += len(chunk)
         if size > max_bytes:
-            raise ValueError()
+            raise ValueError("too_large")
     file_obj.seek(0)
     return size, h.hexdigest()
