@@ -19,6 +19,43 @@ At the end of this document are Assumptions, design decisions, enterprise-grade 
 ## High-level Design (Current, basic version)
 ![basic_design.png](docs/images/basic_design.png)
 
+1. FastAPI (Application Layer)
+- Why:
+Lightweight, modern Python framework.
+Built-in validation with Pydantic.
+Automatic OpenAPI/Swagger docs -> easy for professors/students to test endpoints.
+- Role: Handles upload, download, and list endpoints. Validates inputs, applies business logic, and communicates with storage layers.
+2. File Storage: S3 (via LocalStack in dev, AWS S3 in prod)
+- Why:
+S3 is durable, scalable, and cost-efficient.
+Fits perfectly for storing files.
+LocalStack lets us develop/test without AWS credentials.
+- Role: Stores raw file contents keyed by unique ID.
+3. Metadata Store: DynamoDB (via LocalStack in dev, AWS DynamoDB in prod)
+- Why:
+Fast lookups for metadata by file ID.
+Scales horizontally when many students upload.
+LocalStack supports DynamoDB emulation for local dev.
+- Role: Tracks metadata -> filename, size, upload timestamp, SHA256 hash.
+4. Input Validation (inside FastAPI layer)
+- Why:
+Prevent abuse and ensure correctness.
+Enforce 20MB file size limit.
+Sanitize filenames to block unsafe paths.
+Validate file IDs (UUID format).
+- Role: Guarantees requests are safe before hitting storage.
+5. Docker & Docker Compose
+- Why:
+Portable and consistent development environment.
+Allows running FastAPI + LocalStack together easily.
+- Role: Simplifies local setup and ensures reproducibility.
+6. Testing Framework: pytest + coverage
+- Why:
+Industry-standard Python test framework.
+Simple to write unit + integration tests.
+pytest-cov provides test coverage reports to measure quality.
+- Role: Ensures correctness and reliability.
+
 ## Run locally quickly
 1. Pre-requisite
 - Install python 3.11 or above.
@@ -146,9 +183,9 @@ make down   # stop everything
 - Metadata stored in DynamoDB (or local JSON).
 - Storage in S3 or local disk depending on environment.
 - API errors:
-  - `413 Payload Too Large` → File exceeds 20MB
-  - `404 Not Found` → File ID does not exist
-  - `500 Internal Server Error` → Unexpected server error
+  - `413 Payload Too Large` -> File exceeds 20MB
+  - `404 Not Found` -> File ID does not exist
+  - `500 Internal Server Error` -> Unexpected server error
 - LocalStack usage for rapid local testing without AWS dependency.
 
 # Scaling to Production and Future Extensions
@@ -162,7 +199,7 @@ Design evolves for enterprise-grade scale (e.g., millions of files, compliance):
 - Global Tables -> multi-region replication for Disaster Recovery (DR).
 ## Security & Compliance
 - Authentication/Authorization -> AWS Cognito or enterprise OIDC (JWT-based).
-- Encryption -> TLS in transit, KMS-managed keys at rest.
+- Encryption -> TLS in transit, KMS-managed keys at rest (S3 bucket, dynamodb table).
 - Access Control -> IAM roles, fine-grained bucket policies, per-user RBAC.
 - Audit Logging -> CloudTrail + immutable logs 
 - Compliance -> Immutable data, retention policies (S3 object-lock, dynamodb TTL).
@@ -170,6 +207,8 @@ Design evolves for enterprise-grade scale (e.g., millions of files, compliance):
 - API behind API Gateway + Lambda (serverless, auto-scaling).
 - Use CloudFront CDN for file downloads (low latency, global distribution).
 - Multi-AZ deployments with automated failover.
+- Load balancer for routing traffic and manage request spike.
+- Queuing to smooth spikes instead of failing outright.
 ## Observability
 - Metrics (CloudWatch / Datadog) -> request counts, error rates, upload latency.
 - Request tracing (X-Ray).
@@ -181,12 +220,37 @@ Design evolves for enterprise-grade scale (e.g., millions of files, compliance):
 ## API enhancements
 - Version API path with v1, v2 ... for ease of API evolution with low customer impact.
 - Response pagination for list files endpoint.
-- Validate for safe file types (Currently, any file type is allowed e.g., .exe, .sh)
+- Validate for safe file types and safeguard against spoofing (Currently, any file type is allowed e.g., .exe, .sh).
+- Handle more errors at scale like 
+  - 429 too many requests
+  - 415 unsupported media type
+  - 507 insufficient storage 
+  - rate limiting/throttling when too many students upload at same time.
 ## CI/CD
 - Pipeline for app build and deployment
-- Gated deployment: Automated tests (unit, integration, perf etc.), static code analysis & test coverage (sonar), governance checks etc.
+- Gated deployment: Automated tests (unit, integration, performance etc.), static code analysis & test coverage (sonar), governance checks etc.
 - Tagged releases (in case of app rollback)
 - Change management process
 
-## Alternate Design
+## Multi-Regional Architecture (High-Level)
 ![alt_design.png](docs/images/alt_design.png)
+
+1. Clients (Students & Professors)
+Access the API through a CDN (Amazon CloudFront) -> reduces latency, caches downloads, provides DDoS protection.
+2. API Gateway (Regional or Edge-Optimized)
+Provides a globally accessible API entry point.
+Handles routing, throttling, request validation, and integrates with backend services (behind ALB).
+3. Application Layer (Lambda)
+Runs statelessly.
+Multiple regional deployments for high availability.
+Handles file upload/download requests and metadata management.
+4. File Storage (Amazon S3 with Cross-Region Replication)
+Files are stored in S3 buckets with versioning + replication enabled.
+Uploads in one region automatically replicate to secondary regions -> ensures durability and regional redundancy.
+5. Metadata Store (Amazon DynamoDB Global Tables)
+Stores file metadata (ID, name, size, timestamp, hash).
+Global Tables replicate data across multiple regions automatically.
+Low-latency reads/writes regardless of client geography.
+6. Content Distribution (CloudFront CDN)
+Distributes frequently accessed student resources (PDFs, slides, etc.) via edge locations worldwide.
+Reduces load on S3 + API by caching downloads close to clients.

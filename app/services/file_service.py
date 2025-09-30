@@ -40,7 +40,7 @@ def upload_file(file: UploadFile):
     except ValueError:
         raise HTTPException(status_code=413, detail="File size exceeds maximum limit of 20MB.")
     except ClientError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Upload file failed due to unexpected error. {str(e)}")
 
 
 def list_files():
@@ -56,7 +56,7 @@ def list_files():
         )
         return resp.get("Items", [])
     except ClientError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"List files failed due to unexpected error. {str(e)}")
 
 
 def download_file(file_id: str):
@@ -70,7 +70,7 @@ def download_file(file_id: str):
         resp = table.get_item(Key={"fileId": file_id})
         item = resp.get("Item")
         if not item:
-            raise HTTPException(404, "File not found")
+            raise HTTPException(404, f"File not found")
 
         obj = s3.get_object(Bucket=config.BUCKET_NAME, Key=item["s3Key"])
         return StreamingResponse(
@@ -81,7 +81,7 @@ def download_file(file_id: str):
             },
         )
     except ClientError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Download file failed due to unexpected error. {str(e)}")
 
 
 def sanitize_filename(filename: str) -> str:
@@ -92,12 +92,3 @@ def sanitize_filename(filename: str) -> str:
     """
     sanitized = re.sub(r'[^a-zA-Z0-9_\-\.]', '_', filename)
     return sanitized
-
-
-def check_file_extension(filename: str) -> str:
-    """
-
-    :param filename:
-    :return:
-    """
-    file_extension = filename[1].lower()
