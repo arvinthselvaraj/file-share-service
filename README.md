@@ -16,7 +16,7 @@ At the end of this document are Assumptions, design decisions, enterprise-grade 
 - Runs locally with `LocalStack` (no AWS account needed)
 - `Makefile` for ease of testing and running locally
 
-## High-level Design (Current, basic version)
+## High-level Design
 ![basic_design.png](docs/images/basic_design.png)
 
 1. FastAPI (Application Layer)
