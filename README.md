@@ -16,6 +16,36 @@ At the end of this document are Assumptions, design decisions, enterprise-grade 
 - Runs locally with `LocalStack` (no AWS account needed)
 - `Makefile` for ease of testing and running locally
 
+# Assumptions & Design Decisions
+I've made few assumptions factoring the development effort, cost and operational considerations but keeping the design open for future evolution.
+
+- Personas: Professor and students
+  - Geolocated in same region.
+  - Small number of clients accessing the API at any time.
+  - Low cost, low operational overhead solution.
+  - Minor and occasional request spikes e.g. during assignment deadline.
+  - User retries on failure
+  - Access to high-speed internet
+- No authentication required (per exercise requirements).
+- Out-of-the-box encryption in transit and rest is sufficient.
+- Max file size: 20MB (per exercise requirements).
+  - zero size file allowed.
+- File names sanitized to prevent unsafe characters.
+- Metadata stored in DynamoDB (or local JSON).
+  - Light weight, unstructured data
+  - on-demand/pay-per-request pricing model
+- Storage in S3 or local disk depending on environment.
+  - No retention/cleanup requirement
+  - Assume uploaded files are safe without any virus/malware
+- API errors:
+  - `413 Payload Too Large` -> File exceeds 20MB
+  - `404 Not Found` -> File ID does not exist
+  - `500 Internal Server Error` -> Unexpected server error
+  - `429 rate limit`, `422 unprocessed entity` -> not in scope 
+- LocalStack usage for rapid local testing without AWS dependency.
+- Out-of-the-box logging, metrics and traces.
+- Partial data and data loss acceptable - client retry and manual cleanup.
+
 ## High-level Design
 ![basic_design.png](docs/images/basic_design.png)
 
@@ -173,20 +203,6 @@ make down   # stop everything
 - Errors:
   - 404 File not found
   - 500 Internal Server Error -> unexpected.
-
-
-# Assumptions & Design Decisions
-- No authentication required (per exercise requirements).
-- Max file size: 20MB (per exercise requirements).
-  - zero size file allowed.
-- File names sanitized to prevent unsafe characters.
-- Metadata stored in DynamoDB (or local JSON).
-- Storage in S3 or local disk depending on environment.
-- API errors:
-  - `413 Payload Too Large` -> File exceeds 20MB
-  - `404 Not Found` -> File ID does not exist
-  - `500 Internal Server Error` -> Unexpected server error
-- LocalStack usage for rapid local testing without AWS dependency.
 
 # Scaling to Production and Future Extensions
 Design evolves for enterprise-grade scale (e.g., millions of files, compliance):

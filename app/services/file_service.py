@@ -17,6 +17,7 @@ def upload_file(file: UploadFile):
     :return: file ID, file name and file size
     """
     file_id = str(uuid.uuid4())
+    print(f"Uploading fileId {file_id}")
     s3_key = f"uploads/{file_id}"
 
     try:
@@ -35,6 +36,7 @@ def upload_file(file: UploadFile):
             }
         )
 
+        print(f"Upload successful. FileId {file_id},  filename {file.filename}")
         return {"id": file_id, "filename": file.filename, "size": size}
 
     except ValueError:
@@ -49,6 +51,7 @@ def list_files():
 
     :return: Files metadata
     """
+    print("List all files")
     try:
         # Scan is expensive and response pagination required
         resp = table.scan(
@@ -66,6 +69,7 @@ def download_file(file_id: str):
     :param file_id: file ID generate at the time of file upload
     :return: File to download
     """
+    print(f"Downloading fileId {file_id}")
     try:
         resp = table.get_item(Key={"fileId": file_id})
         item = resp.get("Item")
